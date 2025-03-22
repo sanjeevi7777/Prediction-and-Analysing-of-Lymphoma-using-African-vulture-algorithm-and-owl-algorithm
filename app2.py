@@ -8,8 +8,14 @@ from datetime import datetime
 # Load the trained model
 model = load_model('my_model.keras')
 
-# Define class names
+# Define class names and associated colors
 class_names = ['Benign', 'Early', 'Pre', 'Pro']
+class_colors = {
+    'Benign': '#3498db',  # Blue
+    'Early': '#2ecc71',  # Green
+    'Pre': '#f39c12',    # Orange
+    'Pro': '#e74c3c'     # Red
+}
 
 # Confidence threshold for detecting no disease
 CONFIDENCE_THRESHOLD = 50.0  # Adjust as needed
@@ -79,6 +85,7 @@ prescription_templates = {
     }
 }
 
+# Function to generate HTML report
 def generate_html_report(predicted_class, confidence, date):
     if predicted_class == "No Disease Detected":
         recommendations = ["No immediate action required", "Maintain a healthy lifestyle", "Regular check-ups as per physician’s advice"]
@@ -102,6 +109,7 @@ def generate_html_report(predicted_class, confidence, date):
                 padding: 20px;
                 max-width: 800px;
                 margin: 0 auto;
+                background-color: #f4f6f7;
             }}
             .header {{
                 text-align: center;
@@ -187,6 +195,7 @@ def generate_html_report(predicted_class, confidence, date):
     """
     return html_content
 
+
 # Streamlit UI
 st.set_page_config(page_title="Lymphoma Classification", layout="centered")
 st.title("Lymphoma Image Classification")
@@ -205,29 +214,34 @@ if uploaded_file is not None:
     # Make prediction
     label = model.predict(img_array)
     predicted_class_index = np.argmax(label)
+    predicted_class = class_names[predicted_class_index]  # Assign class name
     confidence = float(label[0][predicted_class_index]) * 100
+
+    st.image(uploaded_file, use_container_width=True)
 
     # Determine if disease is detected
     if confidence < CONFIDENCE_THRESHOLD:
         predicted_class = "No Disease Detected"
+        st.success("✅ No signs of disease detected in the uploaded image.")
     else:
-        predicted_class = class_names[predicted_class_index]
-
-    # Display image and prediction
-    st.image(uploaded_file, caption=f"Predicted Class: {predicted_class}", use_column_width=True)
-
-    if predicted_class == "No Disease Detected":
-        st.success("No signs of disease detected in the uploaded image.")
-    else:
-        st.success(f"Prediction: {predicted_class}")
+        if predicted_class == 'Pre':
+            st.error(f"Prediction:❗{predicted_class} with {confidence:.2f}% confidence.")
+        elif predicted_class == 'Early':
+            st.warning(f"Prediction: ⚠️ {predicted_class} with {confidence:.2f}% confidence.")
+        elif predicted_class == 'Pro':
+            st.error(f"Prediction:❗{predicted_class} with {confidence:.2f}% confidence.")
+        elif predicted_class == 'Benign':
+            st.warning(f"Prediction:⚠️ {predicted_class} with {confidence:.2f}% confidence.")
+        else:
+            st.info(f"⚠️ Unknown class detected: {predicted_class}")
 
         # Show confidence scores
-        st.subheader("Confidence Scores:")
+        st.subheader("🔍 Categories Confidence Scores:")
         for i, class_name in enumerate(class_names):
-            st.write(f"{class_name}: {label[0][i]:.4f}")
+            st.write(f"- {class_name}: {label[0][i] * 100:.2f}%")
 
     # Generate report
-    if st.button("Generate Report"):
+    if st.button("📄 Generate Report"):
         html_content = generate_html_report(
             predicted_class,
             confidence,
@@ -235,7 +249,7 @@ if uploaded_file is not None:
         )
 
         st.download_button(
-            label="Download Report (HTML)",
+            label="📥 Download Report (HTML)",
             data=html_content,
             file_name=f"medical_report_{datetime.now().strftime('%Y%m%d')}.html",
             mime="text/html"
